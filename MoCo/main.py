@@ -47,7 +47,7 @@ if __name__ == '__main__':
     ).to(args.device)
 
     # define optimizer
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.wd, momentum=0.9)
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.max_lr, weight_decay=args.wd, momentum=0.9)
 
     # logging
     results = {'train_loss': [], 'test_acc@1': []}

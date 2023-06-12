@@ -2,21 +2,19 @@ import math
 from tqdm import tqdm
 
 # lr scheduler for training
-def adjust_learning_rate(optimizer, epoch, args):
-    """Decay the learning rate based on schedule"""
-    lr = args.lr
-    if args.cos:  # cosine lr schedule
-        lr *= 0.5 * (1. + math.cos(math.pi * epoch / args.epochs))
-    else:  # stepwise lr schedule
-        for milestone in args.schedule:
-            lr *= 0.1 if epoch >= milestone else 1.
+def decay_learning_rate(optimizer, epoch, args):
+    """
+        lr = min_lr + 0.5*(max_lr - min_lr) * (1 + cos(pi * t/T))
+    """
+    lr = args.min_lr + 0.5*(args.max_lr - args.min_lr) * (1. + math.cos(math.pi * epoch / args.epochs))
+
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
 # train for one epoch
 def train(net, data_loader, optimizer, epoch, args):
     net.train()
-    adjust_learning_rate(optimizer, epoch, args)
+    decay_learning_rate(optimizer, epoch, args)
 
     total_loss, total_num, train_bar = 0.0, 0, tqdm(data_loader)
 
