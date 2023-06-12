@@ -1,4 +1,5 @@
 from torch import nn
+
 # SplitBatchNorm: simulate multi-gpu behavior of BatchNorm in one gpu by splitting alone the batch dimension
 # implementation adapted from https://github.com/davidcpage/cifar10-fast/blob/master/torch_backend.py
 class SplitBatchNorm(nn.BatchNorm2d):

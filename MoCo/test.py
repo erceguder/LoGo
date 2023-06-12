@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 from tqdm import  tqdm
 
 # knn monitor as in InstDisc https://arxiv.org/abs/1805.01978
@@ -25,25 +26,28 @@ def knn_predict(feature, feature_bank, feature_labels, classes, knn_k, knn_t):
 # test using a knn monitor
 def test(net, memory_data_loader, test_data_loader, epoch, args):
     net.eval()
+
     classes = len(memory_data_loader.dataset.classes)
     total_top1, total_top5, total_num, feature_bank = 0.0, 0.0, 0, []
+
     with torch.no_grad():
         # generate feature bank
         for data, target in tqdm(memory_data_loader, desc='Feature extracting'):
-            feature = net(data.cuda(non_blocking=True))
+            feature = net(data.to(args.device))
             feature = F.normalize(feature, dim=1)
             feature_bank.append(feature)
         # [D, N]
         feature_bank = torch.cat(feature_bank, dim=0).t().contiguous()
         # [N]
         feature_labels = torch.tensor(memory_data_loader.dataset.targets, device=feature_bank.device)
+
         # loop test data to predict the label by weighted knn search
         test_bar = tqdm(test_data_loader)
         for data, target in test_bar:
-            data, target = data.cuda(non_blocking=True), target.cuda(non_blocking=True)
+            data, target = data.to(args.device), target.to(args.device)
             feature = net(data)
             feature = F.normalize(feature, dim=1)
-            
+
             pred_labels = knn_predict(feature, feature_bank, feature_labels, classes, args.knn_k, args.knn_t)
 
             total_num += data.size(0)
