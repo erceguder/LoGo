@@ -1,9 +1,43 @@
 from functools import partial
-from batchnorm import SplitBatchNorm
+from batchnorm import SplitBatchNorm2d, SplitBatchNorm1d
 from torchvision.models import resnet
 
 import torch
 import torch.nn as nn
+
+class LoGoBlock(nn.Module):
+    def __init__(self, in_dim, out_dim, bn_splits=16):
+        super().__init__()
+        layers = [
+            nn.Linear(in_dim, out_dim),
+            SplitBatchNorm1d(out_dim, bn_splits),
+            nn.ReLU()
+        ]
+        self.layers = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.layers(x)
+
+class MLP(nn.Module):
+    def __init__(self, feature_dim=128, bn_splits=16):
+        super().__init__()
+        blocks = [
+            LoGoBlock(in_dim=2*feature_dim, out_dim=64, bn_splits=bn_splits),
+            LoGoBlock(in_dim=64, out_dim=64, bn_splits=bn_splits),
+            LoGoBlock(in_dim=64, out_dim=64, bn_splits=bn_splits),
+            LoGoBlock(in_dim=64, out_dim=64, bn_splits=bn_splits),
+            LoGoBlock(in_dim=64, out_dim=64, bn_splits=bn_splits),
+            nn.Linear(64, 1),
+            nn.Softplus()
+        ]
+        self.net = nn.Sequential(*blocks)
+
+    def forward(self, z1, z2):
+        return self.net(torch.cat([z1, z2], axis=-1))
+
+    def omega_loss(self, z_l_1, z_l_2, z_l_neg):
+        loss = -(self.forward(z_l_1, z_l_2) - self.forward(z_l_1, z_l_neg))   # - to turn to gradient ascent
+        return loss.sum()
 
 class ModelBase(nn.Module):
     """
@@ -16,7 +50,7 @@ class ModelBase(nn.Module):
         super(ModelBase, self).__init__()
 
         # use split batchnorm
-        norm_layer = partial(SplitBatchNorm, num_splits=bn_splits) if bn_splits > 1 else nn.BatchNorm2d
+        norm_layer = partial(SplitBatchNorm2d, num_splits=bn_splits) if bn_splits > 1 else nn.BatchNorm2d
         resnet_arch = getattr(resnet, arch)
         net = resnet_arch(num_classes=feature_dim, norm_layer=norm_layer)
 
@@ -34,8 +68,8 @@ class ModelBase(nn.Module):
 
     def forward(self, x):
         x = self.net(x)
-        # note: not normalized here
-        return x
+        # note: normalized here
+        return nn.functional.normalize(x, dim=-1)
 
 class ModelMoCo(nn.Module):
     def __init__(self, dim=128, K=4096, m=0.99, T=0.1, arch='resnet18', bn_splits=8, symmetric=True, device="cuda"):
@@ -152,7 +186,7 @@ class ModelMoCo(nn.Module):
             self._momentum_update_key_encoder()
 
         # compute loss
-        if self.symmetric:  # asymmetric loss
+        if self.symmetric:  # symmetric loss
             loss_12, q1, k2 = self.contrastive_loss(im1, im2)
             loss_21, q2, k1 = self.contrastive_loss(im2, im1)
             loss = loss_12 + loss_21

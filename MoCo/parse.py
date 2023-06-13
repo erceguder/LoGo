@@ -15,6 +15,7 @@ def parse_args():
 
     parser.add_argument('--batch-size', default=512, type=int, metavar='N', help='mini-batch size')
     parser.add_argument('--wd', default=1e-4, type=float, metavar='W', help='weight decay')
+    parser.add_argument('--lambda', default=5e-4, type=float, metavar='W', help='lambda for L_ll', dest="lam")
 
     # moco specific configs:
     parser.add_argument('--moco-dim', default=128, type=int, help='feature dimension')
