@@ -18,8 +18,11 @@ def train(net, data_loader, optimizer, epoch, args):
 
     total_loss, total_num, train_bar = 0.0, 0, tqdm(data_loader)
 
-    for im_1, im_2 in train_bar:
-        im_1, im_2 = im_1.to(args.device), im_2.to(args.device)
+    for global_crops, local_crops in train_bar:
+        g_1, g_2 = global_crops[0].to(args.device), global_crops[1].to(args.device)
+        l_1, l_2 = local_crops[0].to(args.device), local_crops[1].to(args.device)
+#        im_1, im_2 = im_1.to(args.device), im_2.to(args.device)
+        continue
 
         loss = net(im_1, im_2)
 

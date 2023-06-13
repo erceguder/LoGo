@@ -8,8 +8,8 @@ def parse_args():
 
     # lr: 0.06 for batch 512 (or 0.03 for batch 256)
     #parser.add_argument('--lr', '--learning-rate', default=0.06, type=float, metavar='LR', help='initial learning rate', dest='lr')
-    parser.add_argument('--min-lr', '--min-learning-rate', default=0.01, type=float, metavar='LR', help='minimum learning rate', dest='min_lr')
-    parser.add_argument('--max-lr', '--max-learning-rate', default=0.03, type=float, metavar='LR', help='maximum learning rate', dest='max_lr')
+    parser.add_argument('--min-lr', '--min-learning-rate', default=0.0, type=float, metavar='LR', help='minimum learning rate', dest='min_lr')
+    parser.add_argument('--max-lr', '--max-learning-rate', default=0.06, type=float, metavar='LR', help='maximum learning rate', dest='max_lr')
 
     parser.add_argument('--epochs', default=200, type=int, metavar='N', help='number of total epochs to run')
 
