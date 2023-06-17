@@ -35,9 +35,9 @@ def parse_args():
     parser.add_argument('--num_workers', type=int, default=8, help='num of workers to use')
     parser.add_argument('--epochs', type=int, default=200, help='number of training epochs')
 
-    parser.add_argument('--min-lr', '--min-learning-rate', default=0.0, type=float, metavar='LR', help='minimum learning rate', dest='min_lr')
-    parser.add_argument('--max-lr', '--max-learning-rate', default=0.05, type=float, metavar='LR', help='maximum learning rate', dest='max_lr')
-    parser.add_argument('--mlp-lr', '--mlp-learning-rate', default=0.0001, type=float, metavar='LR', help='maximum learning rate', dest='mlp_lr')
+    parser.add_argument('--lr', '--learning-rate', default=0.05, type=float, help='learning rate for the encoder', dest='lr')
+    parser.add_argument('--mlp-lr', '--mlp-learning-rate', default=0.0001, type=float, help='learning rate for the regressor', dest='mlp_lr')
+    parser.add_argument('--lambda', default=1e-4, type=float, help='learning rate for the regressor', dest='lambda_')
 
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight decay')
     parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
@@ -68,7 +68,7 @@ def main():
 
     model = SimSiam(args).to(args.device)
     model_opt = optim.SGD(model.parameters(),
-                          lr=args.max_lr,
+                          lr=args.lr,
                           momentum=args.momentum,
                           weight_decay=args.weight_decay
     )
@@ -86,8 +86,8 @@ def main():
     loss_hist = list()
 
     for epoch in pbar:
-        decay_learning_rate(model_opt, epoch, args)
-        #decay_learning_rate(mlp_opt, epoch, args)
+        decay_learning_rate(model_opt, epoch, args.lr, args)
+        decay_learning_rate(mlp_opt, epoch, args.mlp_lr, args)
 
         # train for one epoch
         train_loss = train(train_loader, model, regressor, model_opt, mlp_opt, epoch, args)
@@ -111,7 +111,7 @@ def train(train_loader, model, regressor, model_opt, mlp_opt, epoch, args):
     # switch to train mode
     model.train()
 
-    total_loss, total_num = 0.0, 0#, tqdm(train_loader, dynamic_ncols=True)
+    total_loss, total_num = 0.0, 0
 
     for g1, g2, l1, l2 in train_loader:
         N = g1.shape[0]
@@ -128,21 +128,23 @@ def train(train_loader, model, regressor, model_opt, mlp_opt, epoch, args):
         regressor.train()
         omega = regressor.omega_loss(zl1, zl2, zl1[k])
 
-        omega.backward(retain_graph=True)
+        omega.backward()
         mlp_opt.step()
         mlp_opt.zero_grad()
 
         l_gg = l_s(model.predictor(zg1), zg2)
 
-        l_lg = l_s(model.predictor(zl1), zg1)
-        l_lg += l_s(model.predictor(zl1), zg2)
-        l_lg += l_s(model.predictor(zl2), zg1)
-        l_lg += l_s(model.predictor(zl2), zg2)
+        pl1, pl2 = model.predictor(zl1), model.predictor(zl2)
+
+        l_lg = l_s(pl1, zg1)
+        l_lg += l_s(pl1, zg2)
+        l_lg += l_s(pl2, zg1)
+        l_lg += l_s(pl2, zg2)
 
         regressor.eval()
         l_ll = regressor(zl1, zl2).mean()
 
-        loss = l_gg + l_lg + 1e-4 * l_ll
+        loss = l_gg + l_lg + args.lambda_ * l_ll
 
         loss.backward()
         model_opt.step()
@@ -171,11 +173,11 @@ def save_checkpoint(args, epoch, model, regressor, model_opt, mlp_opt, filename,
 
 
 # lr scheduler for training
-def decay_learning_rate(optimizer, epoch, args):
+def decay_learning_rate(optimizer, epoch, lr, args):
     """
         lr = min_lr + 0.5*(max_lr - min_lr) * (1 + cos(pi * t/T))
     """
-    lr = args.min_lr + 0.5*(args.max_lr - args.min_lr) * (1. + math.cos(math.pi * epoch / args.epochs))
+    lr = 0.5*lr * (1. + math.cos(math.pi * epoch / args.epochs))
 
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr

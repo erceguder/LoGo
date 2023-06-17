@@ -33,10 +33,14 @@ class Regressor(nn.Module):
     def forward(self, z1, z2):
         return self.net(torch.cat([z1, z2], axis=-1))
 
-    def omega_loss(self, z_l_1, z_l_2, z_l_neg):
-        a = self.forward(z_l_1, z_l_2)
-        b = self.forward(z_l_1, z_l_neg)
-        #loss = -(self.forward(z_l_1, z_l_2) - self.forward(z_l_1, z_l_neg))   # - to turn to gradient ascent
+    def omega_loss(self, zl1, zl2, zl_neg):
+        zl1 = zl1.detach()
+        zl2 = zl2.detach()
+        zl_neg = zl_neg.detach()
+
+        a = self.forward(zl1, zl2)
+        b = self.forward(zl1, zl_neg)
+        #loss = -(self.forward(zl1, zl2) - self.forward(zl1, zl_neg))   # - to turn to gradient ascent
         #return loss.sum()
 
         loss = -(a - b).sum()
