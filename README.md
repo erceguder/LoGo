@@ -4,9 +4,9 @@ This readme file is an outcome of the [CENG502 (Spring 2023)](https://ceng.metu.
 
 # 1. Introduction
 
-The paper, namely "Leverage Your Local and Global Representations: A New Self-Supervised Learning Strategy" by Zhang et al., is published as a conference paper on CVPR 2022. It proposes a new self-supervised learning (SSL) strategy *_-LoGo-_* that can be adapted on top of existing SSL methods such as [MoCo](https://arxiv.org/abs/1911.05722) and [SimSiam](https://arxiv.org/abs/2011.10566).
+The paper, namely "Leverage Your Local and Global Representations: A New Self-Supervised Learning Strategy" by Zhang et al., is published as a conference paper on CVPR 2022. It proposes a new self-supervised learning (SSL) strategy *_-LoGo-_* that can be adapted on top of existing SSL methods such as [MoCo](https://arxiv.org/abs/1911.05722)[] (denoted as MoCo-LoGo) and [SimSiam](https://arxiv.org/abs/2011.10566)[] (denoted as SimSiam-LoGo).
 
-This implementation focuses on what is referred to as *_SimSiam-LoGo_* in the paper, implying that the proposed technique is applied to SimSiam. The goal of this repository is to reproduce some of the results belonging to the section 4.2 of the paper: _"Training and evaluating the features"_.
+This implementation focuses on *_SimSiam-LoGo_*, implying that the proposed technique is applied to SimSiam. The goal of this repository is to reproduce some of the results belonging to the section 4.2 of the paper: _"Training and evaluating the features"_.
 
 ## 1.1. Paper summary
 
@@ -51,6 +51,28 @@ Given the complex image content of the contemporary datasets, the driving motiva
 
 Hence, it is _suboptimal_ to consider views as positive only if they originate from the same image. To address this, LoGo proposes two different kinds of crops, i) local crops, and ii) global crops.
 
+Specifically, each image is augmented twice, using the local and global set of augmentations, resulting in two global crops, and two local crops. Then, global-to-global, local-to-global and local-to-local relationships are optimized.
+
+_Note that l_s denotes a similarity loss from the set above. Specifically for this implementation of SimSiam-LoGo, it denotes the Cosine Loss._
+
+#### Global-to-global
+As global views cover most of the semantics of an image, maximizing the similarity between global views of the same image, and _optionally_ (for contrastive methods) minimizing the similarity between different images is aimed. The objective used here is:
+
+![](assets/l_gg.png)
+
+#### Local-to-global
+Global crops are much more likely to capture the overall semantics of the image, while also sharing some of the semantic signal with the local crops. Therefore, they are treated as constant by either applying stop-gradient operation (SimSiam-LoGo) or fixing their representation in the momentum encoder (both denoted by sg()). The objective, then, is:
+
+![](assets/l_lg.png)
+
+#### Local-to-local
+Contrary to most of the existing works, local crops from the same image are **encouraged** to be dissimilar, since they most likely depict different parts of an object or even entirely different objects. The objective used here is
+
+![](assets/l_ll.png)
+
+where l_a denotes an affinity function (the higher, the more similar).
+
+*Encouraging dissimilarity at some lovel is also a necessity to prevent collapsing or trivial solutions.*
 
 ## 2.2. Our interpretation 
 
