@@ -12,7 +12,7 @@ This implementation focuses on what is referred to as *_SimSiam-LoGo_* in the pa
 
 A plethora of SSL methods rely on maximizing the similarity between representations of the same instance *(some further take negatives into account by methods such as large batch-sizes [] or queues [])*. These representations are aimed to be view-invariant, and thus origin from different views of the instance by applying random augmentations including random cropping.
 
-This approach is inherently limited by the fact that two random crops from the same image may be dissimilar, encoding different semantics. Pushing these features -regardless of the content- to be similar creates a bottleneck on the quality of the learned representations.
+These approaches are inherently limited by the fact that two random crops from the same image may be dissimilar, encoding different semantics. Pushing these features -regardless of the content- to be similar creates a bottleneck on the quality of the learned representations.
 
 This paper addresses this problem by explicitly reasoning about the **Lo**cal and **G**l**o**bal views (crops) by:
 
@@ -24,7 +24,7 @@ This paper addresses this problem by explicitly reasoning about the **Lo**cal an
 
 ## 2.1. The original method
 
-The method is aimed to be general, being applicable in both contrastive and non-contrastive scenarios. So let's first do a quick review to lay the ground for the approach.
+The method is aimed to be general, being applicable in both contrastive and non-contrastive scenarios. So, let's first do a quick review to lay the ground for the approach.
 
 ### 1. Similarity Loss
 
@@ -40,7 +40,7 @@ Contrastive loss further accounts for the negatives, meaning that it pushes to m
 
 ![](assets/cosine.png)
 
-where either stop-gradient operation is applied [] on z_2 branch or momentum encoder is used to obtain the representation z_2.
+where either stop-gradient operation is applied [] on z_2 branch or momentum encoder is used to obtain the representation z_2 [].
 
 ### 2. The Method
 
@@ -93,4 +93,5 @@ python main.py --arch resnet34 --dataset imagenet100 --batch_size 384 --num_work
 
 # Contact
 
-@TODO: Provide your names & email addresses and any other info with which people can contact you.
+Erce Güder - guder.erce@metu.edu.tr
+Ateş Aytekin - atesaytekinn@gmail.com
