@@ -1,6 +1,8 @@
 # runtime
 __pycache__
+exp/
 
 # data
+*.zip
 imagenet100/
 cifar10/
