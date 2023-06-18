@@ -4,9 +4,9 @@ This readme file is an outcome of the [CENG502 (Spring 2023)](https://ceng.metu.
 
 # 1. Introduction
 
-The paper, namely "Leverage Your Local and Global Representations: A New Self-Supervised Learning Strategy" by Zhang et al., is published as a conference paper on CVPR 2022. It proposes a new self-supervised learning (SSL) strategy *_-LoGo-_* that can be adapted on top of existing SSL methods such as [MoCo](https://arxiv.org/abs/1911.05722)[] (denoted as MoCo-LoGo) and [SimSiam](https://arxiv.org/abs/2011.10566)[] (denoted as SimSiam-LoGo).
+The paper, namely "Leverage Your Local and Global Representations: A New Self-Supervised Learning Strategy" by Zhang et al., is published as a conference paper on CVPR 2022. It proposes a new self-supervised learning (SSL) strategy *_-LoGo-_* that can be adapted on top of existing SSL methods such as [MoCo](https://arxiv.org/abs/1911.05722)[] (denoted as _MoCo-LoGo_) and [SimSiam](https://arxiv.org/abs/2011.10566)[] (denoted as _SimSiam-LoGo_).
 
-This implementation focuses on *_SimSiam-LoGo_*, implying that the proposed technique is applied to SimSiam. The goal of this repository is to reproduce some of the results belonging to the section 4.2 of the paper: _"Training and evaluating the features"_.
+This implementation focuses on SimSiam-LoGo, implying that the proposed technique is applied to SimSiam. The goal of this repository is to reproduce some of the results belonging to the section 4.2 of the paper: _"Training and evaluating the features"_.
 
 ## 1.1. Paper summary
 
@@ -66,13 +66,29 @@ Global crops are much more likely to capture the overall semantics of the image,
 ![](assets/l_lg.png)
 
 #### Local-to-local
-Contrary to most of the existing works, local crops from the same image are **encouraged** to be dissimilar, since they most likely depict different parts of an object or even entirely different objects. The objective used here is
+Contrary to most of the existing works, local crops from the same image are **encouraged** to be dissimilar, since they most likely depict different parts of an object or even entirely different objects. 
+
+*Here, one should note that encouraging dissimilarity at some lovel is also a necessity to prevent collapse or trivial solutions.*
+
+The objective used to encourage the dissimilarity is:
 
 ![](assets/l_ll.png)
 
 where l_a denotes an affinity function (the higher, the more similar).
 
-*Encouraging dissimilarity at some lovel is also a necessity to prevent collapsing or trivial solutions.*
+In principle, l_a can be any well-known similarity measure, such as the cosine similarity. On the other hand, however, the high-dimensional nature of the encoded representations would allow representations to be distant -using such metrics- in many directions, most of them being _meaningless_.
+
+To incorporate more meaning _(and possibly ease the convergence of training)_, the method proposes to jointly train and use a _learned metric_ implemented as an MLP. The objective used to train it is motivated by the intuition that local crops from the same image are, on average, expected to encode more similar semantics, compared to local crops from different images. Hence, yielding the objective to be maximized:
+
+![](assets/omega.png)
+
+where f() denotes the MLP, z_1 & z_2 denotes local crops originating from the same image, and z_- denotes local crops from different images.
+
+The overall objective becomes:
+
+![](assets/overall.png)
+
+where lambda balances the similarity and dissimilarity terms (set to 1e-4 for SimSiam-LoGo).
 
 ## 2.2. Our interpretation 
 
