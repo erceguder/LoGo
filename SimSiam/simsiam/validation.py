@@ -41,7 +41,7 @@ class KNNValidation(object):
                                          num_workers=args.num_workers,
                                          pin_memory=True,
                                          drop_last=True)
-
+    @torch.no_grad()
     def _topk_retrieval(self):
         """Extract features from validation split and search on train split features."""
         n_data = self.train_dataloader.dataset.data.shape[0]
@@ -52,35 +52,34 @@ class KNNValidation(object):
             torch.cuda.empty_cache()
 
         train_features = torch.zeros([feat_dim, n_data], device=self.device)
-        with torch.no_grad():
-            for batch_idx, (inputs, _) in enumerate(self.train_dataloader):
-                inputs = inputs.to(self.device)
-                batch_size = inputs.size(0)
 
-                # forward
-                features = self.model(inputs)
-                features = nn.functional.normalize(features)
-                train_features[:, batch_idx * batch_size:batch_idx * batch_size + batch_size] = features.data.t()
+        for batch_idx, (inputs, _) in enumerate(self.train_dataloader):
+            inputs = inputs.to(self.device)
+            batch_size = inputs.size(0)
 
-            train_labels = torch.LongTensor(self.train_dataloader.dataset.targets).cuda()
+            # forward
+            features = self.model(inputs)
+            features = nn.functional.normalize(features)
+            train_features[:, batch_idx * batch_size:batch_idx * batch_size + batch_size] = features.data.t()
+
+        train_labels = torch.LongTensor(self.train_dataloader.dataset.targets).cuda()
 
         total, correct = 0, 0
 
-        with torch.no_grad():
-            for inputs, targets in self.val_dataloader:
-                targets = targets.cuda(non_blocking=True)
-                batch_size = inputs.size(0)
-                features = self.model(inputs.to(self.device))
+        for inputs, targets in self.val_dataloader:
+            targets = targets.cuda(non_blocking=True)
+            batch_size = inputs.size(0)
+            features = self.model(inputs.to(self.device))
 
-                dist = torch.mm(features, train_features)
-                yd, yi = dist.topk(self.K, dim=1, largest=True, sorted=True)
-                candidates = train_labels.view(1, -1).expand(batch_size, -1)
-                retrieval = torch.gather(candidates, 1, yi)
+            dist = torch.mm(features, train_features)
+            yd, yi = dist.topk(self.K, dim=1, largest=True, sorted=True)
+            candidates = train_labels.view(1, -1).expand(batch_size, -1)
+            retrieval = torch.gather(candidates, 1, yi)
 
-                retrieval = retrieval.narrow(1, 0, 1).clone().view(-1)
+            retrieval = retrieval.narrow(1, 0, 1).clone().view(-1)
 
-                total += batch_size
-                correct += retrieval.eq(targets.data).sum().item()
+            total += batch_size
+            correct += retrieval.eq(targets.data).sum().item()
 
         return correct / total
 

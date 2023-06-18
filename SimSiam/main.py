@@ -12,6 +12,7 @@ from tqdm import tqdm
 from simsiam.loader import CIFAR10Pair
 from simsiam.model_factory import SimSiam, Regressor
 from simsiam.validation import KNNValidation
+from simsiam.criterion import SimilarityLoss
 
 def set_seed(seed):
     torch.manual_seed(seed)
@@ -79,41 +80,41 @@ def main():
                         momentum=args.momentum,
                         weight_decay=args.weight_decay
     )
+    criterion = SimilarityLoss()
 
-    pbar = tqdm(range(args.epochs), dynamic_ncols=True)
+    #pbar = tqdm(range(args.epochs), dynamic_ncols=True)
     validation = KNNValidation(args, model.encoder)
 
     loss_hist = list()
 
-    for epoch in pbar:
+    for epoch in range(args.epochs):
         decay_learning_rate(model_opt, epoch, args.lr, args)
         decay_learning_rate(mlp_opt, epoch, args.mlp_lr, args)
 
         # train for one epoch
-        train_loss = train(train_loader, model, regressor, model_opt, mlp_opt, epoch, args)
-        loss_hist.append(train_loss)
+        train_loss = train(train_loader, model, regressor, criterion, model_opt, mlp_opt, epoch, args)
+        loss_hist.append(train_loss.item())
 
-        pbar.set_description(f"Loss: {train_loss:.4f}")
+        #pbar.set_description(f"Loss: {train_loss:.4f}")
 
         if (epoch+1) % 5 == 0:
             top1_acc = validation.eval()
-            save_checkpoint(args, epoch, model, regressor, model_opt, mlp_opt, os.path.join(args.exp_dir, f"ckpt_epoch_{epoch}.pt"), top1_acc)
+            save_checkpoint(args, epoch, model, regressor, model_opt, mlp_opt, top1_acc)
+
+            print(f"Epoch: [{epoch+1}/{args.epochs}] => Loss: {train_loss:.4f}, Acc: {top1_acc: .4f}")
+        else:
+            print(f"Epoch: [{epoch+1}/{args.epochs}] => Loss: {train_loss:.4f}")
 
     return loss_hist
 
 
-def l_s(p, z):
-    z = z.detach()  # stop gradient
-    return - torch.nn.functional.cosine_similarity(p, z, dim=-1).mean()
-
-
-def train(train_loader, model, regressor, model_opt, mlp_opt, epoch, args):
+def train(train_loader, model, regressor, criterion, model_opt, mlp_opt, epoch, args):
     # switch to train mode
     model.train()
 
     total_loss, total_num = 0.0, 0
 
-    for g1, g2, l1, l2 in train_loader:
+    for g1, g2, l1, l2 in tqdm(train_loader, leave=False):
         N = g1.shape[0]
 
         g1, g2 = g1.to(args.device), g2.to(args.device)
@@ -132,14 +133,14 @@ def train(train_loader, model, regressor, model_opt, mlp_opt, epoch, args):
         mlp_opt.step()
         mlp_opt.zero_grad()
 
-        l_gg = l_s(model.predictor(zg1), zg2)
+        l_gg = criterion(model.predictor(zg1), zg2)
 
         pl1, pl2 = model.predictor(zl1), model.predictor(zl2)
 
-        l_lg = l_s(pl1, zg1)
-        l_lg += l_s(pl1, zg2)
-        l_lg += l_s(pl2, zg1)
-        l_lg += l_s(pl2, zg2)
+        l_lg = criterion(pl1, zg1)
+        l_lg += criterion(pl1, zg2)
+        l_lg += criterion(pl2, zg1)
+        l_lg += criterion(pl2, zg2)
 
         regressor.eval()
         l_ll = regressor(zl1, zl2).mean()
@@ -156,7 +157,7 @@ def train(train_loader, model, regressor, model_opt, mlp_opt, epoch, args):
     return total_loss / total_num
 
 
-def save_checkpoint(args, epoch, model, regressor, model_opt, mlp_opt, filename, acc):
+def save_checkpoint(args, epoch, model, regressor, model_opt, mlp_opt, acc):
     state = {
         'epoch': epoch,
         'arch': args.arch,
@@ -169,7 +170,7 @@ def save_checkpoint(args, epoch, model, regressor, model_opt, mlp_opt, filename,
 
         'top1_acc': acc
     }
-    torch.save(state, filename)
+    torch.save(state, os.path.join(args.exp_dir, f"ckpt_epoch_{epoch}.pt"),)
 
 
 # lr scheduler for training
@@ -177,7 +178,7 @@ def decay_learning_rate(optimizer, epoch, lr, args):
     """
         lr = min_lr + 0.5*(max_lr - min_lr) * (1 + cos(pi * t/T))
     """
-    lr = 0.5*lr * (1. + math.cos(math.pi * epoch / args.epochs))
+    lr = 0.5 * lr * (1. + math.cos(math.pi * epoch / args.epochs))
 
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr

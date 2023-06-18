@@ -38,16 +38,16 @@ class Regressor(nn.Module):
         zl2 = zl2.detach()
         zl_neg = zl_neg.detach()
 
-        a = self.forward(zl1, zl2)
-        b = self.forward(zl1, zl_neg)
-        #loss = -(self.forward(zl1, zl2) - self.forward(zl1, zl_neg))   # - to turn to gradient ascent
-        #return loss.sum()
+        return -(self.forward(zl1, zl2).mean() - self.forward(zl1, zl_neg).mean())
+        # a = self.forward(zl1, zl2)
+        # b = self.forward(zl1, zl_neg)
+        #loss = -(self.forward(zl1, zl2).mean() - self.forward(zl1, zl_neg).mean())   # - to turn to gradient ascent
 
-        loss = -(a - b).sum()
+        # loss = -(a - b).sum()
 
-        if loss == 0.0:
-            print(torch.equal(a, torch.zeros_like(a)), torch.equal(b, torch.zeros_like(b)) )
-        return loss
+        # if loss == 0.0:
+        #     print(torch.equal(a, torch.zeros_like(a)), torch.equal(b, torch.zeros_like(b)) )
+        # return loss
 
 
 class projectionMLP(nn.Module):
