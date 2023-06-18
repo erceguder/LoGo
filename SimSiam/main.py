@@ -9,10 +9,11 @@ from torch import optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from simsiam.loader import CIFAR10Pair
+from simsiam.loader import CIFAR10, IMAGENET100
 from simsiam.model_factory import SimSiam, Regressor
 from simsiam.validation import KNNValidation
 from simsiam.criterion import SimilarityLoss
+
 
 def set_seed(seed):
     torch.manual_seed(seed)
@@ -21,12 +22,10 @@ def set_seed(seed):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser('arguments for training')
+    parser = argparse.ArgumentParser('Arguments for training')
 
-    parser.add_argument('--data_root', type=str, default='cifar10', help='path to dataset directory')
+    parser.add_argument('--dataset', type=str, default='cifar10', help='training dataset', choices=["imagenet100", "cifar10"])
     parser.add_argument('--exp_dir', type=str, default='exp', help='path to experiment directory')
-    parser.add_argument('--trial', type=str, default='1', help='trial id')
-    parser.add_argument('--img_dim', default=32, type=int)
 
     parser.add_argument('--arch', default='resnet18', help='model name is used for training')
 
@@ -54,10 +53,16 @@ def main():
 
     os.makedirs(args.exp_dir, exist_ok=True)
 
-    train_set = CIFAR10Pair(root=args.data_root,
+    if args.dataset == "cifar10":
+        train_set = CIFAR10(root=args.dataset,
                             train=True,
-                            download=False
-    )
+                            download=True
+        )
+    else:
+        train_set = IMAGENET100(root=args.dataset,
+                                train=True,
+                                eval_=False
+        )
 
     train_loader = DataLoader(dataset=train_set,
                               batch_size=args.batch_size,
@@ -66,7 +71,6 @@ def main():
                               pin_memory=True,
                               drop_last=True
     )
-
     model = SimSiam(args).to(args.device)
     model_opt = optim.SGD(model.parameters(),
                           lr=args.lr,
@@ -85,7 +89,7 @@ def main():
     #pbar = tqdm(range(args.epochs), dynamic_ncols=True)
     validation = KNNValidation(args, model.encoder)
 
-    loss_hist = list()
+    loss_hist, acc_hist = list(), list()
 
     for epoch in range(args.epochs):
         decay_learning_rate(model_opt, epoch, args.lr, args)
@@ -100,12 +104,13 @@ def main():
         if (epoch+1) % 5 == 0:
             top1_acc = validation.eval()
             save_checkpoint(args, epoch, model, regressor, model_opt, mlp_opt, top1_acc)
+            acc_hist.append(top1_acc)
 
             print(f"Epoch: [{epoch+1}/{args.epochs}] => Loss: {train_loss:.4f}, Acc: {top1_acc: .4f}")
         else:
             print(f"Epoch: [{epoch+1}/{args.epochs}] => Loss: {train_loss:.4f}")
 
-    return loss_hist
+    return loss_hist, acc_hist
 
 
 def train(train_loader, model, regressor, criterion, model_opt, mlp_opt, epoch, args):
@@ -114,7 +119,7 @@ def train(train_loader, model, regressor, criterion, model_opt, mlp_opt, epoch, 
 
     total_loss, total_num = 0.0, 0
 
-    for g1, g2, l1, l2 in tqdm(train_loader, leave=False):
+    for g1, g2, l1, l2 in tqdm(train_loader, leave=False, dynamic_ncols=True):
         N = g1.shape[0]
 
         g1, g2 = g1.to(args.device), g2.to(args.device)
@@ -185,4 +190,6 @@ def decay_learning_rate(optimizer, epoch, lr, args):
 
 
 if __name__ == '__main__':
-    print(main())
+    loss, acc = main()
+    print(loss)
+    print(acc)

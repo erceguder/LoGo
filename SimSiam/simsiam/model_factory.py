@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from .resnet_cifar import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
+import torchvision.models
 
 class LoGoBlock(nn.Module):
     def __init__(self, in_dim, out_dim):
@@ -39,15 +40,6 @@ class Regressor(nn.Module):
         zl_neg = zl_neg.detach()
 
         return -(self.forward(zl1, zl2).mean() - self.forward(zl1, zl_neg).mean())
-        # a = self.forward(zl1, zl2)
-        # b = self.forward(zl1, zl_neg)
-        #loss = -(self.forward(zl1, zl2).mean() - self.forward(zl1, zl_neg).mean())   # - to turn to gradient ascent
-
-        # loss = -(a - b).sum()
-
-        # if loss == 0.0:
-        #     print(torch.equal(a, torch.zeros_like(a)), torch.equal(b, torch.zeros_like(b)) )
-        # return loss
 
 
 class projectionMLP(nn.Module):
@@ -109,7 +101,8 @@ class SimSiam(nn.Module):
     def __init__(self, args):
         super(SimSiam, self).__init__()
 
-        self.backbone = SimSiam.get_backbone(args.arch)
+        self.backbone = SimSiam.get_backbone(args.arch, args.dataset)
+
         out_dim = self.backbone.fc.weight.shape[1]
         self.backbone.fc = nn.Identity()
 
@@ -123,9 +116,16 @@ class SimSiam(nn.Module):
         self.predictor = predictionMLP(args.feat_dim)
 
     @staticmethod
-    def get_backbone(backbone_name):
-        return {'resnet18': ResNet18(),
-                'resnet34': ResNet34(),
-                'resnet50': ResNet50(),
-                'resnet101': ResNet101(),
-                'resnet152': ResNet152()}[backbone_name]
+    def get_backbone(backbone_name, dataset):
+        if dataset=="cifar10":
+            return {'resnet18': ResNet18(),
+                    'resnet34': ResNet34(),
+                    'resnet50': ResNet50(),
+                    'resnet101': ResNet101(),
+                    'resnet152': ResNet152()}[backbone_name]
+        else:
+            return {'resnet18': torchvision.models.resnet18(),
+                    'resnet34': torchvision.models.resnet34(),
+                    'resnet50': torchvision.models.resnet50(),
+                    'resnet101': torchvision.models.resnet101(),
+                    'resnet152': torchvision.models.resnet152()}[backbone_name]
